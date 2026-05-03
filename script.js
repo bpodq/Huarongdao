@@ -285,6 +285,18 @@ function drawBoard() {
     
     // 遍历绘制每个方块
     blocks.forEach(block => {
+        // 如果是选中的方块，先绘制选中边框
+        if (selectedBlock === block) {
+            ctx.strokeStyle = '#FFD700'; // 金色边框表示选中
+            ctx.lineWidth = 3;
+            ctx.strokeRect(
+                block.x * gridSize + 1,
+                block.y * gridSize + 1,
+                block.width * gridSize - 2,
+                block.height * gridSize - 2
+            );
+        }
+
         // 根据角色和方向选择正确的图片
         let imageKey;
         if (block.name === '曹操') {
@@ -295,7 +307,7 @@ function drawBoard() {
             // 武将：宽度>高度为横版(后缀2)，否则为竖版(后缀1)
             imageKey = block.width > block.height ? `${block.name}2` : `${block.name}1`;
         }
-        
+
         const image = images[imageKey];
         // 如果图片未加载完成则跳过绘制
         if (!image || !image.naturalWidth) return;
@@ -431,37 +443,48 @@ function checkWin() {
  *
  * 操作方式：
  * 1. 先用鼠标点击选中一个方块
- * 2. 使用方向键（上、下、左、右）移动选中的方块
+ * 2. 使用WASD键移动选中的方块
+ *    - W: 向上移动
+ *    - A: 向左移动
+ *    - S: 向下移动
+ *    - D: 向右移动
  * 3. 移动成功后自动取消选中状态
  *
  * @param {KeyboardEvent} e - 键盘事件对象
  * @returns {void}
  */
 function handleKeyPress(e) {
+    // 调试信息
+    console.log('按键:', e.key, '选中方块:', selectedBlock ? selectedBlock.name : '无');
+
     // 如果游戏结束，忽略键盘输入
     if (gameOver) return;
 
-    // 只有选中方块后才能使用方向键移动
+    // 只有选中方块后才能使用WASD移动
     if (selectedBlock) {
         let moved = false;
 
         // 根据按键方向移动方块
-        switch(e.key) {
-            case 'ArrowLeft':
+        switch(e.key.toLowerCase()) {
+            case 'w':
                 e.preventDefault();
-                moved = moveBlock(selectedBlock, -1, 0, true);
-                break;
-            case 'ArrowRight':
-                e.preventDefault();
-                moved = moveBlock(selectedBlock, 1, 0, true);
-                break;
-            case 'ArrowUp':
-                e.preventDefault();
+                console.log('向上移动');
                 moved = moveBlock(selectedBlock, 0, -1, true);
                 break;
-            case 'ArrowDown':
+            case 'a':
                 e.preventDefault();
+                console.log('向左移动');
+                moved = moveBlock(selectedBlock, -1, 0, true);
+                break;
+            case 's':
+                e.preventDefault();
+                console.log('向下移动');
                 moved = moveBlock(selectedBlock, 0, 1, true);
+                break;
+            case 'd':
+                e.preventDefault();
+                console.log('向右移动');
+                moved = moveBlock(selectedBlock, 1, 0, true);
                 break;
         }
 
@@ -501,7 +524,7 @@ function handleMouseDown(e) {
     // 查找被点击的方块
     for (let block of blocks) {
         // 检查点击位置是否在方块范围内
-        if (gridX >= block.x && gridX < block.x + block.width && 
+        if (gridX >= block.x && gridX < block.x + block.width &&
             gridY >= block.y && gridY < block.y + block.height) {
             selectedBlock = block;
             isDragging = true;
@@ -509,9 +532,17 @@ function handleMouseDown(e) {
             dragStartY = mouseY;
             dragStartGridX = gridX;
             dragStartGridY = gridY;
+
+            // 选中后立即重绘以显示选中效果
+            drawBoard();
+            console.log('选中方块:', block.name); // 调试信息
             return;
         }
     }
+
+    // 如果点击空白区域，取消选中
+    selectedBlock = null;
+    drawBoard();
     
     // 如果点击了空白区域，取消选择
     selectedBlock = null;
@@ -547,10 +578,15 @@ function handleMouseMove(e) {
  * @returns {void}
  */
 function handleMouseUp(e) {
-    // 如果游戏结束、未在拖动或没有选中方块，重置状态并返回
-    if (gameOver || !isDragging || !selectedBlock) {
+    // 如果游戏结束，重置状态并返回
+    if (gameOver) {
         isDragging = false;
         selectedBlock = null;
+        return;
+    }
+
+    // 如果不是拖动操作（只是点击），不要清除selectedBlock
+    if (!isDragging) {
         return;
     }
     
@@ -651,7 +687,8 @@ function handleMouseUp(e) {
     
     // 结束拖动状态
     isDragging = false;
-    selectedBlock = null;
+    // 不清除selectedBlock，保留给键盘控制
+    console.log('拖拽结束，选中方块:', selectedBlock ? selectedBlock.name : '无');
 }
 
 /**
@@ -1060,6 +1097,7 @@ function initGame() {
 
     // 添加键盘事件监听器
     document.addEventListener('keydown', handleKeyPress);
+    console.log('键盘事件监听器已添加');
     
     // 添加鼠标事件监听器
     canvas.addEventListener('mousedown', handleMouseDown);  // 鼠标按下
