@@ -116,6 +116,7 @@ let selectedBlock = null;     // 当前选中的方块（用于键盘控制）
 let moves = 0;                // 移动步数计数器
 let gameOver = false;         // 游戏是否结束
 let isDragging = false;       // 是否正在拖拽
+let stepCountedForBlock = null; // 当前计数已归属的方块（同一方块连续移动只算1步）
 let dragStartX = 0;           // 拖拽开始时的鼠标X坐标
 let dragStartY = 0;           // 拖拽开始时的鼠标Y坐标
 let dragStartGridX = 0;       // 拖拽开始时的格子X坐标
@@ -393,35 +394,44 @@ function canMove(block, newX, newY) {
 function moveBlock(block, dx, dy, incrementMoves = true) {
     const newX = block.x + dx;
     const newY = block.y + dy;
-    
+
     if (canMove(block, newX, newY)) {
         // 更新方块位置
         block.x = newX;
         block.y = newY;
-        
-        // 如果需要计数，增加步数
-        if (incrementMoves) {
-            moves++;
-            movesElement.textContent = moves;
-        }
-        
+
         // 重新绘制棋盘
         drawBoard();
-        
+
         // 检查是否达到胜利条件
         checkWin();
-        
+
         return true;
     }
     return false;
 }
 
 /**
+ * 执行移动后的操作(增加步数)
+ * 同一方块连续移动只算1步，切换方块或重新选中后才算新的一步
+ *
+ * @param {Object} block - 移动的方块
+ * @returns {void}
+ */
+function afterMove(block) {
+    if (stepCountedForBlock !== block) {
+        moves++;
+        movesElement.textContent = moves;
+        stepCountedForBlock = block;
+    }
+}
+
+/**
  * 检查胜利条件
- * 
+ *
  * 胜利条件：曹操（2x2方块）移动到底部中央位置 (x: 1, y: 3)
  * 此时曹操正好对准出口，可以逃出华容道
- * 
+ *
  * @returns {void}
  */
 function checkWin() {
@@ -443,54 +453,57 @@ function checkWin() {
  *
  * 操作方式：
  * 1. 先用鼠标点击选中一个方块
- * 2. 使用WASD键移动选中的方块
- *    - W: 向上移动
- *    - A: 向左移动
- *    - S: 向下移动
- *    - D: 向右移动
- * 3. 移动成功后自动取消选中状态
+ * 2. 使用WASD键移动选中的方块（每次移动1格）
+ *    - W: 向上移动1格
+ *    - A: 向左移动1格
+ *    - S: 向下移动1格
+ *    - D: 向右移动1格
+ * 3. 选中后连续移动只算作1步，直到切换到其他方块
+ * 4. 移动失败时清除选中状态
  *
- * @param {KeyboardEvent} e - 键盘事件对象
+ * @param {KeyboardEvent} e - 键板事件对象
  * @returns {void}
  */
 function handleKeyPress(e) {
-    // 调试信息
-    console.log('按键:', e.key, '选中方块:', selectedBlock ? selectedBlock.name : '无');
-
     // 如果游戏结束，忽略键盘输入
     if (gameOver) return;
 
     // 只有选中方块后才能使用WASD移动
     if (selectedBlock) {
-        let moved = false;
+        let dx = 0, dy = 0;
 
-        // 根据按键方向移动方块
+        // 根据按键方向确定移动方向
         switch(e.key.toLowerCase()) {
             case 'w':
                 e.preventDefault();
-                console.log('向上移动');
-                moved = moveBlock(selectedBlock, 0, -1, true);
+                dy = -1;
                 break;
             case 'a':
                 e.preventDefault();
-                console.log('向左移动');
-                moved = moveBlock(selectedBlock, -1, 0, true);
+                dx = -1;
                 break;
             case 's':
                 e.preventDefault();
-                console.log('向下移动');
-                moved = moveBlock(selectedBlock, 0, 1, true);
+                dy = 1;
                 break;
             case 'd':
                 e.preventDefault();
-                console.log('向右移动');
-                moved = moveBlock(selectedBlock, 1, 0, true);
+                dx = 1;
                 break;
         }
 
-        // 移动成功后取消选中状态
-        if (moved) {
-            selectedBlock = null;
+        // 检查是否可以移动
+        if (dx !== 0 || dy !== 0) {
+            if (canMove(selectedBlock, selectedBlock.x + dx, selectedBlock.y + dy)) {
+                // 移动方块（false表示不增加步数）
+                if (moveBlock(selectedBlock, dx, dy, false)) {
+                    // 执行移动后的操作（增加步数）
+                    afterMove(selectedBlock);
+                }
+            } else {
+                // 移动失败，清除选中状态
+                selectedBlock = null;
+            }
         }
     }
 }
@@ -527,6 +540,7 @@ function handleMouseDown(e) {
         if (gridX >= block.x && gridX < block.x + block.width &&
             gridY >= block.y && gridY < block.y + block.height) {
             selectedBlock = block;
+            stepCountedForBlock = null; // 选中方块后重置计数，下次移动算新的一步
             isDragging = true;
             dragStartX = mouseX;
             dragStartY = mouseY;
@@ -535,7 +549,6 @@ function handleMouseDown(e) {
 
             // 选中后立即重绘以显示选中效果
             drawBoard();
-            console.log('选中方块:', block.name); // 调试信息
             return;
         }
     }
@@ -577,18 +590,25 @@ function handleMouseMove(e) {
  * @param {MouseEvent} e - 鼠标事件对象
  * @returns {void}
  */
+// 防止重复处理的标志
+let isProcessingMouseUp = false;
+
 function handleMouseUp(e) {
     // 如果游戏结束，重置状态并返回
     if (gameOver) {
         isDragging = false;
         selectedBlock = null;
+        isProcessingMouseUp = false;
         return;
     }
 
-    // 如果不是拖动操作（只是点击），不要清除selectedBlock
-    if (!isDragging) {
+    // 如果不是拖动操作（只是点击）或正在处理，不要处理
+    if (!isDragging || isProcessingMouseUp) {
         return;
     }
+
+    // 标记为正在处理
+    isProcessingMouseUp = true;
     
     // 获取画布位置并计算鼠标相对于画布的坐标
     const rect = canvas.getBoundingClientRect();
@@ -611,30 +631,22 @@ function handleMouseUp(e) {
     
     // 情况一：L型移动（同时有水平和垂直位移）
     if (deltaGridX !== 0 && deltaGridY !== 0) {
-        // 尝试两种移动顺序，只要有一种成功就算移动成功
-        
-        // 尝试顺序1：先水平移动，再垂直移动
+        // L型移动算作一步
+        // 先尝试水平移动
         if (moveBlock(currentBlock, deltaGridX, 0, false)) {
             moved = true;
-            // 延迟100ms后执行垂直移动（动画效果）
+            // 延迟100ms后执行垂直移动
             setTimeout(() => {
                 moveBlock(currentBlock, 0, deltaGridY, false);
-                // 两个方向都移动完成后增加步数
-                moves++;
-                movesElement.textContent = moves;
             }, 100);
-        } else {
-            // 顺序1失败，尝试顺序2：先垂直移动，再水平移动
-            if (moveBlock(currentBlock, 0, deltaGridY, false)) {
-                moved = true;
-                setTimeout(() => {
-                    moveBlock(currentBlock, deltaGridX, 0, false);
-                    moves++;
-                    movesElement.textContent = moves;
-                }, 100);
-            }
+        } else if (moveBlock(currentBlock, 0, deltaGridY, false)) {
+            // 水平移动失败，尝试垂直移动
+            moved = true;
+            setTimeout(() => {
+                moveBlock(currentBlock, deltaGridX, 0, false);
+            }, 100);
         }
-    } 
+    }
     // 情况二：只有水平移动
     else if (deltaGridX !== 0) {
         // 多格移动（超过一格）
@@ -650,13 +662,10 @@ function handleMouseUp(e) {
             }
             if (moveSuccess) {
                 moved = true;
-                // 所有格移动成功后增加步数
-                moves++;
-                movesElement.textContent = moves;
             }
         } else {
             // 移动一格
-            if (moveBlock(currentBlock, deltaGridX, 0, true)) {
+            if (moveBlock(currentBlock, deltaGridX, 0, false)) {
                 moved = true;
             }
         }
@@ -666,6 +675,7 @@ function handleMouseUp(e) {
             // 尝试移动多格
             let moveSuccess = true;
             for (let i = 0; i < Math.abs(deltaGridY); i++) {
+                // 只有第一格增加步数
                 if (!moveBlock(currentBlock, 0, deltaGridY > 0 ? 1 : -1, false)) {
                     moveSuccess = false;
                     break;
@@ -673,13 +683,10 @@ function handleMouseUp(e) {
             }
             if (moveSuccess) {
                 moved = true;
-                // 移动完成后增加步数
-                moves++;
-                movesElement.textContent = moves;
             }
         } else {
             // 移动一格
-            if (moveBlock(currentBlock, 0, deltaGridY, true)) {
+            if (moveBlock(currentBlock, 0, deltaGridY, false)) {
                 moved = true;
             }
         }
@@ -687,8 +694,29 @@ function handleMouseUp(e) {
     
     // 结束拖动状态
     isDragging = false;
+
+    // 如果移动成功，执行移动后的操作
+    if (moved) {
+        afterMove(currentBlock);
+    }
     // 不清除selectedBlock，保留给键盘控制
-    console.log('拖拽结束，选中方块:', selectedBlock ? selectedBlock.name : '无');
+
+    // 重置处理标志
+    isProcessingMouseUp = false;
+}
+
+/**
+ * 处理鼠标离开画布事件
+ *
+ * 只重置拖动状态，不触发移动（防止与mouseup重复处理）
+ *
+ * @returns {void}
+ */
+function handleMouseLeave() {
+    if (isDragging) {
+        isDragging = false;
+    }
+    isProcessingMouseUp = false;
 }
 
 /**
@@ -706,21 +734,22 @@ function handleMouseUp(e) {
 function resetGame() {
     // 重新初始化方块布局（根据当前选择的布局方案）
     initBlocks();
-    
+
     // 重置步数
     moves = 0;
     movesElement.textContent = moves;
-    
+
     // 重置游戏状态
     gameOver = false;
     selectedBlock = null;
+    stepCountedForBlock = null;
     isSolving = false;
-    
+
     // 重新启用按钮
     solveBtn.disabled = false;
     solveBtn.textContent = '自动求解';
     resetBtn.disabled = false;
-    
+
     // 重新绘制棋盘
     drawBoard();
 }
@@ -1097,13 +1126,12 @@ function initGame() {
 
     // 添加键盘事件监听器
     document.addEventListener('keydown', handleKeyPress);
-    console.log('键盘事件监听器已添加');
-    
+        
     // 添加鼠标事件监听器
     canvas.addEventListener('mousedown', handleMouseDown);  // 鼠标按下
     canvas.addEventListener('mousemove', handleMouseMove);  // 鼠标移动
     canvas.addEventListener('mouseup', handleMouseUp);      // 鼠标释放
-    canvas.addEventListener('mouseleave', handleMouseUp);   // 鼠标离开画布
+    canvas.addEventListener('mouseleave', handleMouseLeave);   // 鼠标离开画布
     
     // 添加按钮点击事件监听器
     resetBtn.addEventListener('click', resetGame);  // 重置游戏
