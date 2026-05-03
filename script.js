@@ -428,45 +428,43 @@ function checkWin() {
 
 /**
  * 处理键盘输入事件
- * 
+ *
  * 操作方式：
  * 1. 先用鼠标点击选中一个方块
  * 2. 使用方向键（上、下、左、右）移动选中的方块
  * 3. 移动成功后自动取消选中状态
- * 
+ *
  * @param {KeyboardEvent} e - 键盘事件对象
  * @returns {void}
  */
 function handleKeyPress(e) {
     // 如果游戏结束，忽略键盘输入
     if (gameOver) return;
-    
-    // 方向键键码定义
-    const LEFT_KEY = 37;
-    const RIGHT_KEY = 39;
-    const UP_KEY = 38;
-    const DOWN_KEY = 40;
-    
+
     // 只有选中方块后才能使用方向键移动
     if (selectedBlock) {
         let moved = false;
-        
+
         // 根据按键方向移动方块
-        switch (e.keyCode) {
-            case LEFT_KEY:
+        switch(e.key) {
+            case 'ArrowLeft':
+                e.preventDefault();
                 moved = moveBlock(selectedBlock, -1, 0, true);
                 break;
-            case RIGHT_KEY:
+            case 'ArrowRight':
+                e.preventDefault();
                 moved = moveBlock(selectedBlock, 1, 0, true);
                 break;
-            case UP_KEY:
+            case 'ArrowUp':
+                e.preventDefault();
                 moved = moveBlock(selectedBlock, 0, -1, true);
                 break;
-            case DOWN_KEY:
+            case 'ArrowDown':
+                e.preventDefault();
                 moved = moveBlock(selectedBlock, 0, 1, true);
                 break;
         }
-        
+
         // 移动成功后取消选中状态
         if (moved) {
             selectedBlock = null;
