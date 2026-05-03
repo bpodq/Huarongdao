@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>华容道游戏</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1>华容道游戏</h1>
+        <div class="game-info">
+            <div>步数: <span id="moves">0</span></div>
+            <div class="layout-selector">
+                <label for="layoutSelect">开局方案:</label>
+                <select id="layoutSelect">
+                    <option value="0">方案一 - 经典布局</option>
+                    <option value="1">方案二 - 双横武将</option>
+                    <option value="2">方案三 - 三横武将</option>
+                    <option value="3">方案四 - 四横武将</option>
+                    <option value="4">方案五 - 五横武将</option>
+                </select>
+            </div>
+            <div class="layout-selector">
+                <label for="gridSizeSelect">格子大小:</label>
+                <select id="gridSizeSelect">
+                    <option value="80">80</option>
+                    <option value="100">100</option>
+                    <option value="120">120</option>
+                    <option value="140" selected>140</option>
+                    <option value="160">160</option>
+                    <option value="180">180</option>
+                    <option value="200">200</option>
+                </select>
+            </div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+        <div class="game-controls">
+            <button id="resetBtn">重置游戏</button>
+            <button id="solveBtn">自动求解</button>
+        </div>
+        <div class="game-instructions">
+            <h3>操作说明</h3>
+            <p>使用方向键或点击方块来移动</p>
+            <p>将最大的方块（曹操）移动到顶部中央的出口</p>
+            <p>出口位置在顶部中央</p>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
